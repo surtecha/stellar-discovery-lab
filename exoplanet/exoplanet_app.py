@@ -1,6 +1,7 @@
 import streamlit as st
 import pickle
 import numpy as np
+import plotly.graph_objects as go
 
 # Load the saved model and scaler
 with open("../saved_models/model.pkl", "rb") as model_file:
@@ -61,3 +62,25 @@ if st.button("Predict"):
     # Display the prediction and the probability
     st.write(f"**Prediction:** {prediction[0]}")  # Display predicted class (e.g., 'CONFIRMED' or 'FALSE POSITIVE')
     st.write(f"**Probability:** {prediction_prob[0][1]:.2f} (CONFIRMED), {prediction_prob[0][0]:.2f} (FALSE POSITIVE)")
+
+    # Plot the probabilities using Plotly
+    fig = go.Figure(data=[
+        go.Bar(
+            x=["CONFIRMED", "FALSE POSITIVE"],
+            y=[prediction_prob[0][1], prediction_prob[0][0]],
+            text=[f"{prediction_prob[0][1]:.2f}", f"{prediction_prob[0][0]:.2f}"],
+            textposition="outside",
+            marker=dict(color=["green", "red"]),
+        )
+    ])
+
+    # Customize the layout of the plot
+    fig.update_layout(
+        title="Prediction Probabilities",
+        xaxis_title="Class",
+        yaxis_title="Probability",
+        showlegend=False
+    )
+
+    # Display the plot in Streamlit
+    st.plotly_chart(fig)
