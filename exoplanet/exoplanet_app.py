@@ -24,11 +24,36 @@ st.sidebar.header("Input Features")
 
 # Collect user input for the 5 required features
 user_input = {}
-user_input["koi_score"] = st.sidebar.number_input("koi_score", min_value=0.0, value=1.0)
-user_input["koi_fpflag_co"] = st.sidebar.number_input("koi_fpflag_co", min_value=0, value=0)
-user_input["koi_fpflag_ss"] = st.sidebar.number_input("koi_fpflag_ss", min_value=0, value=0)
-user_input["koi_prad"] = st.sidebar.number_input("koi_prad", min_value=0.0, value=2.26)
-user_input["koi_count"] = st.sidebar.number_input("koi_count", min_value=0, value=2)
+user_input["koi_score"] = st.sidebar.number_input(
+    "koi_score (Disposition Score)",
+    min_value=0.0,
+    value=1.0,
+    help="A value between 0 and 1 indicating the confidence in the KOI disposition. Higher values indicate more confidence for CANDIDATE, lower for FALSE POSITIVE. Values between 0 and 1."
+)
+user_input["koi_fpflag_co"] = st.sidebar.number_input(
+    "koi_fpflag_co (Centroid Offset Flag)",
+    min_value=0,
+    value=0,
+    help="Indicates that the source of the signal is from a nearby star, inferred by centroid location measurements or signal strength comparison. Values between 0 and 1."
+)
+user_input["koi_fpflag_ss"] = st.sidebar.number_input(
+    "koi_fpflag_ss (Stellar Eclipse Flag)", 
+    min_value=0, 
+    value=0,
+    help="Indicates a significant secondary event or eclipse-like variability, suggesting the signal may be caused by an eclipsing binary. Values between 0 and 1."
+)
+user_input["koi_prad"] = st.sidebar.number_input(
+    "koi_prad (Planetary Radius)", 
+    min_value=0.0, 
+    value=2.26,
+    help="The radius of the planet in Earth radii, calculated from the planet-star radius ratio and the stellar radius. Values between 0.08 & 200346.0."
+)
+user_input["koi_count"] = st.sidebar.number_input(
+    "koi_count (Number of Planets)", 
+    min_value=0, 
+    value=2,
+    help="The number of planet candidates identified in a system. Values between 1 & 7."
+)
 
 # Fill the remaining features with placeholder values (0.0 for numeric features)
 for feature in full_feature_order:
