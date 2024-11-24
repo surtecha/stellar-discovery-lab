@@ -1,7 +1,10 @@
 import streamlit as st
 import pickle
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Load the saved model and scaler
 with open("../saved_models/model.pkl", "rb") as model_file:
@@ -94,27 +97,67 @@ if st.button("Predict"):
     st.write(f"**Prediction:** {prediction[0]}")  # Display predicted class (e.g., 'CONFIRMED' or 'FALSE POSITIVE')
     st.write(f"**Probability:** {prediction_prob[0][1]:.2f} (CONFIRMED), {prediction_prob[0][0]:.2f} (FALSE POSITIVE)")
 
-    # Plot the probabilities using Plotly
-    fig = go.Figure(data=[
-        go.Bar(
-            x=["CONFIRMED", "FALSE POSITIVE"],
-            y=[prediction_prob[0][1], prediction_prob[0][0]],
-            text=[f"{prediction_prob[0][1]:.2f}", f"{prediction_prob[0][0]:.2f}"],
-            textposition="outside",
-            marker=dict(color=["green", "red"]),
-        )
-    ])
+    # Load dataset
+    dataset_path = "../data/processed/cleaned_data.csv"
+    data = pd.read_csv(dataset_path)
 
-    # Customize the layout of the plot
-    fig.update_layout(
-        title="Prediction Probabilities",
-        xaxis_title="Class",
-        yaxis_title="Probability",
-        showlegend=False
+    # Apply dark mode styling to plots
+    plt.style.use("dark_background")
+
+    # Create a 2x2 grid layout for all plots
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle("Feature Visualizations with User Input", fontsize=16)
+    fig.set_facecolor("#262730") 
+    # 1. Pie Chart for `koi_fpflag_co`
+    pie_data_co = data["koi_fpflag_co"].value_counts()
+    axs[0, 0].pie(
+        pie_data_co,
+        labels=pie_data_co.index,
+        autopct="%1.1f%%",
+        startangle=90,
+        colors=["#1f77b4", "#ff7f0e"],
     )
+    axs[0, 0].set_title("Centroid Offset Flag (koi_fpflag_co)")
 
-    # Display the plot in Streamlit
-    st.plotly_chart(fig)
+    # 2. Pie Chart for `koi_fpflag_ss`
+    pie_data_ss = data["koi_fpflag_ss"].value_counts()
+    axs[0, 1].pie(
+        pie_data_ss,
+        labels=pie_data_ss.index,
+        autopct="%1.1f%%",
+        startangle=90,
+        colors=["#1f77b4", "#ff7f0e"],
+    )
+    axs[0, 1].set_title("Stellar Eclipse Flag (koi_fpflag_ss)")
+
+    # 3. Log-scaled Histogram for `koi_prad`
+    sns.histplot(data["koi_prad"], ax=axs[1, 0], bins=20, kde=True, color="skyblue", log_scale=(True, False))
+    axs[1, 0].axvline(user_input["koi_prad"], color="red", linestyle="--", linewidth=2, label="User Input")
+    axs[1, 0].set_title("Planetary Radius (koi_prad)")
+    axs[1, 0].set_xlabel("Planetary Radius")
+    axs[1, 0].set_ylabel("Frequency")
+    axs[1, 0].legend()
+
+    # 4. Bar Chart for `koi_count`
+    bar_data = data["koi_count"].value_counts().sort_index()
+    bars = axs[1, 1].bar(bar_data.index, bar_data.values, color="skyblue", label="Dataset")
+    user_idx = user_input["koi_count"]
+    for bar in bars:
+        if bar.get_x() <= user_idx < bar.get_x() + bar.get_width():
+            bar.set_color("red")
+            bar.set_label("User Input")
+    axs[1, 1].set_title("Number of Planets (koi_count)")
+    axs[1, 1].set_xlabel("Number of Planets")
+    axs[1, 1].set_ylabel("Frequency")
+    axs[1, 1].legend()
+    # Apply background color to all axes
+    for ax in axs.flat:
+        ax.set_facecolor("#262730")  # Match Streamlit's black background
+        ax.tick_params(colors="white")  # White color for ticks and labels
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    st.pyplot(fig)
 
 # Right: Hamburger menu placeholder
 with st.expander("Menu (Click to expand)"):
