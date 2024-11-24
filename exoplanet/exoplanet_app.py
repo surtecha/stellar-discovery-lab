@@ -28,19 +28,22 @@ user_input = {}
 user_input["koi_score"] = st.sidebar.number_input(
     "Disposition Score",
     min_value=0.0,
+    max_value=1.0,
     value=1.0,
     help="A value between 0 and 1 indicating the confidence in the KOI disposition. Higher values indicate more confidence for CANDIDATE, lower for FALSE POSITIVE. Values between 0 and 1."
 )
 user_input["koi_fpflag_co"] = st.sidebar.number_input(
     "Centroid Offset Flag",
-    min_value=0,
-    value=0,
+    min_value=0.0,
+    max_value=1.0,
+    value=0.0,
     help="Indicates that the source of the signal is from a nearby star, inferred by centroid location measurements or signal strength comparison. Values between 0 and 1."
 )
 user_input["koi_fpflag_ss"] = st.sidebar.number_input(
     "Stellar Eclipse Flag", 
-    min_value=0, 
-    value=0,
+    min_value=0.0,
+    max_value=1.0, 
+    value=0.0,
     help="Indicates a significant secondary event or eclipse-like variability, suggesting the signal may be caused by an eclipsing binary. Values between 0 and 1."
 )
 user_input["koi_prad"] = st.sidebar.number_input(
@@ -49,10 +52,12 @@ user_input["koi_prad"] = st.sidebar.number_input(
     value=2.26,
     help="The radius of the planet in Earth radii, calculated from the planet-star radius ratio and the stellar radius. Values between 0.08 & 200346.0."
 )
-user_input["koi_count"] = st.sidebar.number_input(
+user_input["koi_count"] = st.sidebar.slider(
     "Number of Planets", 
-    min_value=0, 
+    min_value=1,
+    max_value=7, 
     value=2,
+    step=1,
     help="The number of planet candidates identified in a system. Values between 1 & 7."
 )
 
@@ -84,7 +89,7 @@ if st.button("Predict"):
     # Predict the result using the trained model
     prediction = model.predict(scaled_input)
     prediction_prob = model.predict_proba(scaled_input)
-    
+    print(prediction)
     # Display the prediction and the probability
     st.write(f"**Prediction:** {prediction[0]}")  # Display predicted class (e.g., 'CONFIRMED' or 'FALSE POSITIVE')
     st.write(f"**Probability:** {prediction_prob[0][1]:.2f} (CONFIRMED), {prediction_prob[0][0]:.2f} (FALSE POSITIVE)")
