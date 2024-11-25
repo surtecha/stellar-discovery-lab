@@ -1,9 +1,30 @@
 import streamlit as st
+st.set_page_config(layout="wide")
+
 import pickle
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 0rem;
+        }
+        .element-container {
+            margin-bottom: 0.5rem;
+        }
+        .stMarkdown {
+            margin-bottom: 0rem;
+        }
+        div[data-testid="stSidebarContent"] > div:first-child {
+            padding-top: 1rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 with open("saved_models/model.pkl", "rb") as model_file:
     model = pickle.load(model_file)
@@ -18,9 +39,8 @@ full_feature_order = [
     "koi_steff", "koi_slogg", "koi_smet", "koi_srad", "koi_smass", "koi_kepmag", "koi_disposition"
 ]
 
-st.set_page_config(layout="wide")
-st.markdown("<h1 style='text-align: center;'>Exoplanet Binary Classifier</h1>", unsafe_allow_html=True)
-st.sidebar.header("Input Features") 
+st.markdown("<h1 style='text-align: center; margin-bottom: 1rem;'>Exoplanet Binary Classifier</h1>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='margin-top: -1rem;'>Input Features</h3>", unsafe_allow_html=True)
 
 user_input = {}
 user_input["koi_score"] = st.sidebar.number_input("Disposition Score", min_value=0.0, max_value=1.0, value=1.0)
@@ -39,148 +59,247 @@ numeric_features = full_feature_order[:-1]
 input_data_numeric = input_data[:, :len(numeric_features)]
 scaled_input = scaler.transform(input_data_numeric)
 
-st.sidebar.write("")  # Add some spacing
 predict_button = st.sidebar.button("Predict", use_container_width=True)
 
 if predict_button:
     prediction = model.predict(scaled_input)
     prediction_prob = model.predict_proba(scaled_input)
     
-    # Make prediction results bigger and bolder, but smaller than title
-    st.markdown(f"<h4 style='text-align: center;'>Prediction: {prediction[0]}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align: center; margin-top: -1rem;'>Prediction: {prediction[0]}</h4>", unsafe_allow_html=True)
     
     dataset_path = "data/processed/cleaned_data.csv"
     data = pd.read_csv(dataset_path)
 
-    # Probability Bar Chart using matplotlib
-    fig_prob, ax_prob = plt.subplots(figsize=(8, 5))
-    fig_prob.patch.set_facecolor('#0E1117')
-    ax_prob.set_facecolor('#0E1117')
+    default_blue = "#4FADFF"
+    seaborn_red = "#E24A33"
 
-    probabilities = [prediction_prob[0][0], prediction_prob[0][1]]
-    labels = ['CONFIRMED', 'FALSE POSITIVE']
-    colors = ['#3498db', '#e74c3c']
-    
-    bars = ax_prob.bar(labels, probabilities, color=colors)
-    ax_prob.set_ylim(0, 1)
-    ax_prob.set_title('Prediction Probabilities', color='white', pad=15, fontsize=20) 
-    
-    for bar in bars:
-        height = bar.get_height()
-        ax_prob.text(bar.get_x() + bar.get_width()/2., height/2.,
-                    f'{height:.1%}',
-                    ha='center', va='center', color='white', fontsize=14, weight='bold')
-    
-    ax_prob.tick_params(colors='white')
-    ax_prob.spines['bottom'].set_color('white')
-    ax_prob.spines['top'].set_color('white')
-    ax_prob.spines['right'].set_color('white')
-    ax_prob.spines['left'].set_color('white')
-    
-    for spine in ax_prob.spines.values():
-        spine.set_visible(True)
-        spine.set_color('white')
-    
-    plt.xticks(color='white')
-    plt.yticks(color='white')
-    plt.tight_layout()
-    
+    # Probability Plot with Animation
+    # For the probability plot
+    fig_prob.update_layout(
+        title='Prediction Probabilities',
+        template='plotly_dark',
+        showlegend=False,
+        height=400,
+        yaxis=dict(range=[0, 1]),
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': False,
+            'buttons': [{
+                'label': 'Play',
+                'method': 'animate',
+                'args': [None, {
+                    'frame': {'duration': 50},
+                    'fromcurrent': True,
+                    'transition': {'duration': 0}
+                }]
+            }]
+        }]
+    )
+
+    # For the radius area plot
+    radius_area.update_layout(
+        title='Planetary Radius Distribution',
+        xaxis_title='Planetary Radius (Earth Radii)',
+        yaxis_title='Frequency',
+        template='plotly_dark',
+        height=400,
+        xaxis=dict(
+            type='log',
+            title_standoff=25,
+            ticktext=['0.1', '0.2', '0.5', '1', '2', '5', '10', '20', '50', '100'],
+            tickvals=[0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+        ),
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': False,
+            'buttons': [{
+                'label': 'Play',
+                'method': 'animate',
+                'args': [None, {
+                    'frame': {'duration': 30},
+                    'fromcurrent': True,
+                    'transition': {'duration': 0}
+                }]
+            }]
+        }]
+    )
+
+    # For the planet area plot
+    planet_area.update_layout(
+        title='Number of Planets per System',
+        xaxis_title='Number of Planets',
+        yaxis_title='Frequency',
+        template='plotly_dark',
+        height=400,
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': False,
+            'buttons': [{
+                'label': 'Play',
+                'method': 'animate',
+                'args': [None, {
+                    'frame': {'duration': 30},
+                    'fromcurrent': True,
+                    'transition': {'duration': 0}
+                }]
+            }]
+        }]
+    )
+
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.pyplot(fig_prob)
+        st.plotly_chart(fig_prob, use_container_width=True)
 
-    # Create 2x2 layout with equal width columns
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        # Planetary Radius Distribution
-        radius_hist = go.Figure()
-        
-        # Create logarithmically spaced bins
-        bins = np.logspace(np.log10(0.1), np.log10(100), 30)
+        bins = np.logspace(np.log10(0.1), np.log10(100), 50)
         hist_data = np.histogram(data['koi_prad'], bins=bins)
+        x_values = np.sqrt(bins[:-1] * bins[1:])
         
-        bar_colors = ['rgba(135, 206, 235, 0.7)'] * len(hist_data[0])
+        radius_area = go.Figure()
+        
+        radius_area.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=np.zeros_like(hist_data[0]),
+                fill='tozeroy',
+                mode='lines',
+                line=dict(width=2, color=default_blue),
+                name='Dataset Distribution',
+                hovertemplate='Radius: %{x:.2f}<br>Count: %{y}<extra></extra>'
+            )
+        )
+
+        frames = [
+            go.Frame(
+                data=[
+                    go.Scatter(
+                        x=x_values,
+                        y=hist_data[0] * k/20,
+                        fill='tozeroy',
+                        mode='lines',
+                        line=dict(width=2, color=default_blue)
+                    )
+                ],
+                name=f'frame{k}'
+            )
+            for k in range(21)
+        ]
+        radius_area.frames = frames
+
         user_value = user_input['koi_prad']
         bin_index = np.digitize(user_value, bins) - 1
-        if 0 <= bin_index < len(bar_colors):
-            bar_colors[bin_index] = 'rgba(255, 0, 0, 0.7)'
+        if 0 <= bin_index < len(hist_data[0]):
+            radius_area.add_trace(
+                go.Scatter(
+                    x=[user_value],
+                    y=[hist_data[0][bin_index]],
+                    mode='markers',
+                    marker=dict(size=8, color=seaborn_red),
+                    name='Your Input',
+                    hovertemplate='Radius: %{x:.2f}<br>Count: %{y}<extra></extra>'
+                )
+            )
 
-        radius_hist.add_trace(go.Bar(
-            x=bins[:-1],
-            y=hist_data[0],
-            width=np.diff(bins),
-            marker_color=bar_colors,
-            name='Dataset'
-        ))
-
-        radius_hist.update_layout(
+        radius_area.update_layout(
             title='Planetary Radius Distribution',
             xaxis_title='Planetary Radius (Earth Radii)',
             yaxis_title='Frequency',
             template='plotly_dark',
-            showlegend=True,
             height=400,
-            width=None,
-            margin=dict(l=50, r=50, t=50, b=50),
-            yaxis=dict(
-                range=[0, max(hist_data[0]) * 1.1]
-            ),
             xaxis=dict(
                 type='log',
                 title_standoff=25,
                 ticktext=['0.1', '0.2', '0.5', '1', '2', '5', '10', '20', '50', '100'],
-                tickvals=[0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100],
-                tickangle=0,
-                gridwidth=1,
-                showgrid=True,
+                tickvals=[0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+            ),
+            animation={
+                'frame': {'duration': 30},
+                'fromcurrent': True,
+                'transition': {'duration': 0}
+            }
+        )
+
+        st.plotly_chart(radius_area, use_container_width=True)
+
+    with col2:
+        planet_count = data['koi_count'].value_counts().sort_index()
+        
+        planet_area = go.Figure()
+
+        planet_area.add_trace(
+            go.Scatter(
+                x=planet_count.index,
+                y=np.zeros_like(planet_count.values),
+                fill='tozeroy',
+                mode='lines',
+                line=dict(width=2, color=default_blue),
+                name='Dataset Distribution',
+                hovertemplate='Planets: %{x}<br>Count: %{y}<extra></extra>'
             )
         )
 
-        st.plotly_chart(radius_hist, use_container_width=True)
-
-    with col2:
-        # Number of Planets Distribution
-        planet_count = data['koi_count'].value_counts().sort_index()
-        
-        bar_colors = ['rgba(135, 206, 235, 0.7)'] * len(planet_count)
-        user_count_index = planet_count.index.get_loc(user_input['koi_count'])
-        bar_colors[user_count_index] = 'rgba(255, 0, 0, 0.7)'
-
-        planet_hist = go.Figure(data=[
-            go.Bar(
-                x=planet_count.index,
-                y=planet_count.values,
-                marker_color=bar_colors,
-                name='Dataset'
+        frames = [
+            go.Frame(
+                data=[
+                    go.Scatter(
+                        x=planet_count.index,
+                        y=planet_count.values * k/20,
+                        fill='tozeroy',
+                        mode='lines',
+                        line=dict(width=2, color=default_blue)
+                    )
+                ],
+                name=f'frame{k}'
             )
-        ])
+            for k in range(21)
+        ]
+        planet_area.frames = frames
 
-        planet_hist.update_layout(
+        planet_area.add_trace(
+            go.Scatter(
+                x=[user_input['koi_count']],
+                y=[planet_count[user_input['koi_count']]],
+                mode='markers',
+                marker=dict(size=8, color=seaborn_red),
+                name='Your Input',
+                hovertemplate='Planets: %{x}<br>Count: %{y}<extra></extra>'
+            )
+        )
+
+        planet_area.update_layout(
             title='Number of Planets per System',
             xaxis_title='Number of Planets',
             yaxis_title='Frequency',
             template='plotly_dark',
-            showlegend=True,
             height=400,
-            width=None,
-            margin=dict(l=50, r=50, t=50, b=50)
+            animation={
+                'frame': {'duration': 30},
+                'fromcurrent': True,
+                'transition': {'duration': 0}
+            }
         )
 
-        st.plotly_chart(planet_hist, use_container_width=True)
+        st.plotly_chart(planet_area, use_container_width=True)
 
-    # Pie Charts
     col3, col4 = st.columns(2)
 
     with col3:
-        # Centroid Offset Flag Pie Chart
         co_counts = data['koi_fpflag_co'].value_counts()
         co_pie = go.Figure(data=[go.Pie(
             labels=['No Offset', 'Offset'],
             values=co_counts.values,
             hole=.3,
-            textinfo='percent+label'
+            textinfo='percent',
+            marker_colors=[default_blue, seaborn_red],
+            textfont=dict(size=16, color='white'),
+            textposition='inside',
+            hoverinfo='label+percent+value',
+            hoverlabel=dict(font=dict(size=14, color='white')),
+            pull=[0, 0.1]
         )])
+        
         co_pie.update_layout(
             title='Centroid Offset Distribution',
             template='plotly_dark',
@@ -189,14 +308,20 @@ if predict_button:
         st.plotly_chart(co_pie, use_container_width=True)
 
     with col4:
-        # Stellar Eclipse Flag Pie Chart
         ss_counts = data['koi_fpflag_ss'].value_counts()
         ss_pie = go.Figure(data=[go.Pie(
             labels=['No Eclipse', 'Eclipse'],
             values=ss_counts.values,
             hole=.3,
-            textinfo='percent+label'
+            textinfo='percent',
+            marker_colors=[default_blue, seaborn_red],
+            textfont=dict(size=16, color='white'),
+            textposition='inside',
+            hoverinfo='label+percent+value',
+            hoverlabel=dict(font=dict(size=14, color='white')),
+            pull=[0, 0.1]
         )])
+        
         ss_pie.update_layout(
             title='Stellar Eclipse Distribution',
             template='plotly_dark',
