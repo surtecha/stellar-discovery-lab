@@ -92,10 +92,10 @@ def create_animated_area_chart(x_values, y_values, user_value, title, x_title, y
                         label='Play',
                         method='animate',
                         args=[None, dict(
-                            frame=dict(duration=20, redraw=True),
+                            frame=dict(duration=40, redraw=True),
                             fromcurrent=True,
                             mode='immediate',
-                            transition=dict(duration=0)
+                            transition=dict(duration=10)
                         )]
                     )
                 ]
