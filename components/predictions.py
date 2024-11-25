@@ -23,9 +23,10 @@ def prepare_input_data(user_input, scaler):
     return scaler.transform(input_data_numeric)
 
 def show_prediction_results(model, scaler, user_input, data):
-    scaled_input = prepare_input_data(user_input, scaler)
-    prediction = model.predict(scaled_input)
-    prediction_prob = model.predict_proba(scaled_input)
+    with st.spinner('Running prediction...'):
+        scaled_input = prepare_input_data(user_input, scaler)
+        prediction = model.predict(scaled_input)
+        prediction_prob = model.predict_proba(scaled_input)
     
     st.markdown(
         f"<h2 style='text-align: center;'>Prediction: {prediction[0]}</h2>",
@@ -37,14 +38,14 @@ def show_prediction_results(model, scaler, user_input, data):
         prob_fig = create_probability_chart(prediction_prob)
         st.pyplot(prob_fig)
 
-    # Display transit simulation if prediction is CONFIRMED
     if prediction[0] == "CONFIRMED":
         st.markdown("<h3>Transit Simulation</h3>", unsafe_allow_html=True)
-        simulation_fig = create_transit_simulation(
-            koi_count=user_input['koi_count'],
-            koi_prad=user_input['koi_prad']
-        )
-        st.plotly_chart(simulation_fig, use_container_width=True)
+        with st.spinner('Generating transit simulation...'):
+            simulation_fig = create_transit_simulation(
+                koi_count=user_input['koi_count'],
+                koi_prad=user_input['koi_prad']
+            )
+            st.plotly_chart(simulation_fig, use_container_width=True)
 
     # Wrap visualizations in dropdown if result is CONFIRMED
     if prediction[0] == "CONFIRMED":
