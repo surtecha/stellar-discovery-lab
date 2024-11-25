@@ -3,17 +3,14 @@ import pickle
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Load the saved model and scaler
-with open("../saved_models/model.pkl", "rb") as model_file:
+with open("saved_models/model.pkl", "rb") as model_file:
     model = pickle.load(model_file)
 
-with open("../saved_models/scaler.pkl", "rb") as scaler_file:
+with open("saved_models/scaler.pkl", "rb") as scaler_file:
     scaler = pickle.load(scaler_file)
 
-# Define the full list of features in the correct order
 full_feature_order = [
     "koi_score", "koi_fpflag_ss", "koi_fpflag_co", "koi_fpflag_ec", "koi_period",
     "koi_time0bk", "koi_impact", "koi_duration", "koi_depth", "koi_prad", "koi_teq", 
@@ -21,144 +18,191 @@ full_feature_order = [
     "koi_steff", "koi_slogg", "koi_smet", "koi_srad", "koi_smass", "koi_kepmag", "koi_disposition"
 ]
 
-# Initialize input boxes and collect user input
 st.set_page_config(layout="wide")
-st.title("Exoplanet Binary Classifier")
+st.markdown("<h1 style='text-align: center;'>Exoplanet Binary Classifier</h1>", unsafe_allow_html=True)
 st.sidebar.header("Input Features") 
 
-# Collect user input for the 5 required features
 user_input = {}
-user_input["koi_score"] = st.sidebar.number_input(
-    "Disposition Score",
-    min_value=0.0,
-    max_value=1.0,
-    value=1.0,
-    help="A value between 0 and 1 indicating the confidence in the KOI disposition. Higher values indicate more confidence for CANDIDATE, lower for FALSE POSITIVE. Values between 0 and 1."
-)
-user_input["koi_fpflag_co"] = st.sidebar.number_input(
-    "Centroid Offset Flag",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.0,
-    help="Indicates that the source of the signal is from a nearby star, inferred by centroid location measurements or signal strength comparison. Values between 0 and 1."
-)
-user_input["koi_fpflag_ss"] = st.sidebar.number_input(
-    "Stellar Eclipse Flag", 
-    min_value=0.0,
-    max_value=1.0, 
-    value=0.0,
-    help="Indicates a significant secondary event or eclipse-like variability, suggesting the signal may be caused by an eclipsing binary. Values between 0 and 1."
-)
-user_input["koi_prad"] = st.sidebar.number_input(
-    "Planetary Radius", 
-    min_value=0.0, 
-    value=2.26,
-    help="The radius of the planet in Earth radii, calculated from the planet-star radius ratio and the stellar radius. Values between 0.08 & 200346.0."
-)
-user_input["koi_count"] = st.sidebar.slider(
-    "Number of Planets", 
-    min_value=1,
-    max_value=7, 
-    value=2,
-    step=1,
-    help="The number of planet candidates identified in a system. Values between 1 & 7."
-)
+user_input["koi_score"] = st.sidebar.number_input("Disposition Score", min_value=0.0, max_value=1.0, value=1.0)
+user_input["koi_fpflag_co"] = st.sidebar.number_input("Centroid Offset Flag", min_value=0.0, max_value=1.0, value=0.0)
+user_input["koi_fpflag_ss"] = st.sidebar.number_input("Stellar Eclipse Flag", min_value=0.0, max_value=1.0, value=0.0)
+user_input["koi_prad"] = st.sidebar.number_input("Planetary Radius", min_value=0.0, value=2.26)
+user_input["koi_count"] = st.sidebar.slider("Number of Planets", min_value=1, max_value=7, value=2, step=1)
 
-# Fill the remaining features with placeholder values (0.0 for numeric features)
 for feature in full_feature_order:
     if feature not in user_input:
-        if feature == "koi_disposition":
-            # For categorical feature "koi_disposition", you can set a default like "CONFIRMED"
-            user_input[feature] = "CONFIRMED"
-        else:
-            # For numerical features, use a placeholder value (e.g., 0.0)
-            user_input[feature] = 0.0
+        user_input[feature] = "CONFIRMED" if feature == "koi_disposition" else 0.0
 
-# Prepare the input data by creating a list with all features in the correct order
 input_data = [user_input[feature] for feature in full_feature_order]
-
-# Convert to numpy array and reshape for prediction
 input_data = np.array(input_data).reshape(1, -1)
-
-# Separate numeric features for scaling (all except the categorical feature "koi_disposition")
-numeric_features = full_feature_order[:-1]  # All except the last feature
-input_data_numeric = input_data[:, :len(numeric_features)]  # Select only the numeric data
-
-# Scale the input data using the saved scaler
+numeric_features = full_feature_order[:-1]
+input_data_numeric = input_data[:, :len(numeric_features)]
 scaled_input = scaler.transform(input_data_numeric)
 
-# Button to trigger prediction
-if st.button("Predict"):
-    # Predict the result using the trained model
+st.sidebar.write("")  # Add some spacing
+predict_button = st.sidebar.button("Predict", use_container_width=True)
+
+if predict_button:
     prediction = model.predict(scaled_input)
     prediction_prob = model.predict_proba(scaled_input)
-    print(prediction)
-    # Display the prediction and the probability
-    st.write(f"**Prediction:** {prediction[0]}")  # Display predicted class (e.g., 'CONFIRMED' or 'FALSE POSITIVE')
-    st.write(f"**Probability:** {prediction_prob[0][1]:.2f} (CONFIRMED), {prediction_prob[0][0]:.2f} (FALSE POSITIVE)")
-
-    # Load dataset
-    dataset_path = "../data/processed/cleaned_data.csv"
+    
+    # Make prediction results bigger and bolder, but smaller than title
+    st.markdown(f"<h4 style='text-align: center;'>Prediction: {prediction[0]}</h3>", unsafe_allow_html=True)
+    
+    dataset_path = "data/processed/cleaned_data.csv"
     data = pd.read_csv(dataset_path)
 
-    # Apply dark mode styling to plots
-    plt.style.use("dark_background")
+    # Probability Bar Chart using matplotlib
+    fig_prob, ax_prob = plt.subplots(figsize=(8, 5))
+    fig_prob.patch.set_facecolor('#0E1117')
+    ax_prob.set_facecolor('#0E1117')
 
-    # Create a 2x2 grid layout for all plots
-    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle("Feature Visualizations with User Input", fontsize=16)
-    fig.set_facecolor("#262730") 
-    # 1. Pie Chart for `koi_fpflag_co`
-    pie_data_co = data["koi_fpflag_co"].value_counts()
-    axs[0, 0].pie(
-        pie_data_co,
-        labels=pie_data_co.index,
-        autopct="%1.1f%%",
-        startangle=90,
-        colors=["#1f77b4", "#ff7f0e"],
-    )
-    axs[0, 0].set_title("Centroid Offset Flag (koi_fpflag_co)")
-
-    # 2. Pie Chart for `koi_fpflag_ss`
-    pie_data_ss = data["koi_fpflag_ss"].value_counts()
-    axs[0, 1].pie(
-        pie_data_ss,
-        labels=pie_data_ss.index,
-        autopct="%1.1f%%",
-        startangle=90,
-        colors=["#1f77b4", "#ff7f0e"],
-    )
-    axs[0, 1].set_title("Stellar Eclipse Flag (koi_fpflag_ss)")
-
-    # 3. Log-scaled Histogram for `koi_prad`
-    sns.histplot(data["koi_prad"], ax=axs[1, 0], bins=20, kde=True, color="skyblue", log_scale=(True, False))
-    axs[1, 0].axvline(user_input["koi_prad"], color="red", linestyle="--", linewidth=2, label="User Input")
-    axs[1, 0].set_title("Planetary Radius (koi_prad)")
-    axs[1, 0].set_xlabel("Planetary Radius")
-    axs[1, 0].set_ylabel("Frequency")
-    axs[1, 0].legend()
-
-    # 4. Bar Chart for `koi_count`
-    bar_data = data["koi_count"].value_counts().sort_index()
-    bars = axs[1, 1].bar(bar_data.index, bar_data.values, color="skyblue", label="Dataset")
-    user_idx = user_input["koi_count"]
+    probabilities = [prediction_prob[0][0], prediction_prob[0][1]]
+    labels = ['CONFIRMED', 'FALSE POSITIVE']
+    colors = ['#3498db', '#e74c3c']
+    
+    bars = ax_prob.bar(labels, probabilities, color=colors)
+    ax_prob.set_ylim(0, 1)
+    ax_prob.set_title('Prediction Probabilities', color='white', pad=15, fontsize=20) 
+    
     for bar in bars:
-        if bar.get_x() <= user_idx < bar.get_x() + bar.get_width():
-            bar.set_color("red")
-            bar.set_label("User Input")
-    axs[1, 1].set_title("Number of Planets (koi_count)")
-    axs[1, 1].set_xlabel("Number of Planets")
-    axs[1, 1].set_ylabel("Frequency")
-    axs[1, 1].legend()
-    # Apply background color to all axes
-    for ax in axs.flat:
-        ax.set_facecolor("#262730")  # Match Streamlit's black background
-        ax.tick_params(colors="white")  # White color for ticks and labels
+        height = bar.get_height()
+        ax_prob.text(bar.get_x() + bar.get_width()/2., height/2.,
+                    f'{height:.1%}',
+                    ha='center', va='center', color='white', fontsize=14, weight='bold')
+    
+    ax_prob.tick_params(colors='white')
+    ax_prob.spines['bottom'].set_color('white')
+    ax_prob.spines['top'].set_color('white')
+    ax_prob.spines['right'].set_color('white')
+    ax_prob.spines['left'].set_color('white')
+    
+    for spine in ax_prob.spines.values():
+        spine.set_visible(True)
+        spine.set_color('white')
+    
+    plt.xticks(color='white')
+    plt.yticks(color='white')
+    plt.tight_layout()
+    
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.pyplot(fig_prob)
 
-    # Adjust layout
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    st.pyplot(fig)
+    # Create 2x2 layout with equal width columns
+    col1, col2 = st.columns([1, 1])
 
-# Right: Hamburger menu placeholder
-with st.expander("Menu (Click to expand)"):
+    with col1:
+        # Planetary Radius Distribution
+        radius_hist = go.Figure()
+        
+        # Create logarithmically spaced bins
+        bins = np.logspace(np.log10(0.1), np.log10(100), 30)
+        hist_data = np.histogram(data['koi_prad'], bins=bins)
+        
+        bar_colors = ['rgba(135, 206, 235, 0.7)'] * len(hist_data[0])
+        user_value = user_input['koi_prad']
+        bin_index = np.digitize(user_value, bins) - 1
+        if 0 <= bin_index < len(bar_colors):
+            bar_colors[bin_index] = 'rgba(255, 0, 0, 0.7)'
+
+        radius_hist.add_trace(go.Bar(
+            x=bins[:-1],
+            y=hist_data[0],
+            width=np.diff(bins),
+            marker_color=bar_colors,
+            name='Dataset'
+        ))
+
+        radius_hist.update_layout(
+            title='Planetary Radius Distribution',
+            xaxis_title='Planetary Radius (Earth Radii)',
+            yaxis_title='Frequency',
+            template='plotly_dark',
+            showlegend=True,
+            height=400,
+            width=None,
+            margin=dict(l=50, r=50, t=50, b=50),
+            yaxis=dict(
+                range=[0, max(hist_data[0]) * 1.1]
+            ),
+            xaxis=dict(
+                type='log',
+                title_standoff=25,
+                ticktext=['0.1', '0.2', '0.5', '1', '2', '5', '10', '20', '50', '100'],
+                tickvals=[0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100],
+                tickangle=0,
+                gridwidth=1,
+                showgrid=True,
+            )
+        )
+
+        st.plotly_chart(radius_hist, use_container_width=True)
+
+    with col2:
+        # Number of Planets Distribution
+        planet_count = data['koi_count'].value_counts().sort_index()
+        
+        bar_colors = ['rgba(135, 206, 235, 0.7)'] * len(planet_count)
+        user_count_index = planet_count.index.get_loc(user_input['koi_count'])
+        bar_colors[user_count_index] = 'rgba(255, 0, 0, 0.7)'
+
+        planet_hist = go.Figure(data=[
+            go.Bar(
+                x=planet_count.index,
+                y=planet_count.values,
+                marker_color=bar_colors,
+                name='Dataset'
+            )
+        ])
+
+        planet_hist.update_layout(
+            title='Number of Planets per System',
+            xaxis_title='Number of Planets',
+            yaxis_title='Frequency',
+            template='plotly_dark',
+            showlegend=True,
+            height=400,
+            width=None,
+            margin=dict(l=50, r=50, t=50, b=50)
+        )
+
+        st.plotly_chart(planet_hist, use_container_width=True)
+
+    # Pie Charts
+    col3, col4 = st.columns(2)
+
+    with col3:
+        # Centroid Offset Flag Pie Chart
+        co_counts = data['koi_fpflag_co'].value_counts()
+        co_pie = go.Figure(data=[go.Pie(
+            labels=['No Offset', 'Offset'],
+            values=co_counts.values,
+            hole=.3,
+            textinfo='percent+label'
+        )])
+        co_pie.update_layout(
+            title='Centroid Offset Distribution',
+            template='plotly_dark',
+            height=400
+        )
+        st.plotly_chart(co_pie, use_container_width=True)
+
+    with col4:
+        # Stellar Eclipse Flag Pie Chart
+        ss_counts = data['koi_fpflag_ss'].value_counts()
+        ss_pie = go.Figure(data=[go.Pie(
+            labels=['No Eclipse', 'Eclipse'],
+            values=ss_counts.values,
+            hole=.3,
+            textinfo='percent+label'
+        )])
+        ss_pie.update_layout(
+            title='Stellar Eclipse Distribution',
+            template='plotly_dark',
+            height=400
+        )
+        st.plotly_chart(ss_pie, use_container_width=True)
+
+with st.expander("Menu"):
     st.write("This is a placeholder for additional features.")
