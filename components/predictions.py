@@ -5,8 +5,9 @@ from utils.data_loader import full_feature_order
 from components.visualizations import (
     create_animated_area_chart, 
     create_donut_chart,
-    create_probability_chart
+    create_probability_chart,
 )
+from components.simulations import create_transit_simulation
 
 def prepare_input_data(user_input, scaler):
     input_dict = {**user_input}
@@ -84,3 +85,12 @@ def show_prediction_results(model, scaler, user_input, data):
             title='Stellar Eclipse Distribution'
         )
         st.plotly_chart(ss_pie, use_container_width=True)
+    
+    st.markdown("<h3 style='text-align: center;'>Transit Simulation</h3>", 
+                unsafe_allow_html=True)
+    
+    simulation_fig = create_transit_simulation(
+        koi_count=user_input['koi_count'],
+        koi_prad=user_input['koi_prad']
+    )
+    st.plotly_chart(simulation_fig, use_container_width=True)
