@@ -13,16 +13,17 @@ def load_threejs_simulation(koi_count, koi_prad):
                 height: 800px;
                 position: relative;
                 display: flex;
+                flex-direction: column;
                 background: #000;
             }}
             #threejs-container {{
-                width: 50%;
-                height: 100%;
+                width: 100%;
+                height: 60%;
                 position: relative;
             }}
             #graph-container {{
-                width: 50%;
-                height: 100%;
+                width: 100%;
+                height: 40%;
             }}
             #controls {{
                 position: absolute;
@@ -180,7 +181,8 @@ def load_threejs_simulation(koi_count, koi_prad):
                     paper_bgcolor: '#111',
                     font: {{ color: '#fff' }},
                     showlegend: false,
-                    margin: {{ t: 50, r: 20, b: 50, l: 60 }}
+                    margin: {{ t: 30, r: 20, b: 40, l: 60 }},
+                    height: 280
                 }};
 
                 Plotly.newPlot('graph-container', [{{
@@ -266,6 +268,9 @@ def load_threejs_simulation(koi_count, koi_prad):
                 camera.aspect = container.clientWidth / container.clientHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(container.clientWidth, container.clientHeight);
+                
+                // Update graph size
+                Plotly.Plots.resize('graph-container');
             }}
 
             function init() {{
