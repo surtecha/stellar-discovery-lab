@@ -7,7 +7,7 @@ from components.visualizations import (
     create_donut_chart,
     create_probability_chart,
 )
-from components.simulations import create_transit_simulation
+from components.simulations import load_threejs_simulation
 
 def prepare_input_data(user_input, scaler):
     input_dict = {**user_input}
@@ -41,11 +41,10 @@ def show_prediction_results(model, scaler, user_input, data):
     if prediction[0] == "CONFIRMED":
         st.markdown("<h3>Transit Simulation</h3>", unsafe_allow_html=True)
         with st.spinner('Generating transit simulation...'):
-            simulation_fig = create_transit_simulation(
+            load_threejs_simulation(
                 koi_count=user_input['koi_count'],
                 koi_prad=user_input['koi_prad']
             )
-            st.plotly_chart(simulation_fig, use_container_width=True)
 
     # Wrap visualizations in dropdown if result is CONFIRMED
     if prediction[0] == "CONFIRMED":

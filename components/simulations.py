@@ -1,241 +1,299 @@
-# components/simulation.py
 import streamlit as st
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import numpy as np
+import streamlit.components.v1 as components
 
-def create_transit_simulation(koi_count, koi_prad):
-    # Planet colors
-    planet_colors = [
-        'rgb(255, 69, 0)',   # Red-Orange
-        'rgb(0, 128, 255)',  # Bright Blue
-        'rgb(50, 205, 50)',  # Lime Green
-        'rgb(147, 112, 219)', # Purple
-        'rgb(255, 20, 147)',  # Deep Pink
-        'rgb(255, 140, 0)',   # Dark Orange
-        'rgb(0, 255, 255)'    # Cyan
-    ]
+def load_threejs_simulation(koi_count, koi_prad):
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Exoplanet Transit Simulation</title>
+        <style>
+            #simulation-container {{
+                width: 100%;
+                height: 800px;
+                position: relative;
+                display: flex;
+                background: #000;
+            }}
+            #threejs-container {{
+                width: 50%;
+                height: 100%;
+                position: relative;
+            }}
+            #graph-container {{
+                width: 50%;
+                height: 100%;
+            }}
+            #controls {{
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 100;
+                background: rgba(0,0,0,0.7);
+                padding: 10px;
+                border-radius: 5px;
+                color: white;
+            }}
+        </style>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+        <script type="importmap">
+            {{
+                "imports": {{
+                    "three": "https://unpkg.com/three@0.159.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.159.0/examples/jsm/"
+                }}
+            }}
+        </script>
+        <script type="module">
+            import * as THREE from 'three';
+            import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
 
-    # Initialize orbits based on koi_count and koi_prad
-    orbits = []
-    for i in range(int(koi_count)):
-        # Scale orbit radius based on planetary radius
-        radius = (i + 1) * 2.0 * (koi_prad / 2.26)  # Normalized to your default value
-        color = planet_colors[i % len(planet_colors)]
-        
-        orbits.append({
-            "radius": radius,
-            "mass": koi_prad,  # Use planetary radius as proxy for mass
-            "color": color,
-            "start_angle": np.random.uniform(0, 2 * np.pi),
-            "speed_factor": 1,
-            "planet_size": 6 + (koi_prad * 2),
-            "transit_width": 0.8
-        })
-
-    # Create figure with subplots
-    fig = make_subplots(rows=1, cols=2, specs=[[{"type": "xy"}, {"type": "scene"}]], 
-                       horizontal_spacing=0.02, column_widths=[0.5, 0.5])
-
-    # Time setup
-    frames_per_revolution = 120
-    total_revolutions = 10
-    time_steps = np.linspace(0, 2 * np.pi * total_revolutions, 
-                           frames_per_revolution * total_revolutions)
-
-    # Add initial empty trace for combined transits
-    fig.add_trace(
-        go.Scatter(x=[], y=[], mode='lines', name='Combined Transits',
-                  line=dict(color='rgb(147, 112, 219)', width=2)),
-        row=1, col=1
-    )
-
-    # Setup 3D visualization
-    max_radius = max(orbit["radius"] for orbit in orbits)
-    observer_x = max_radius * 1.2
-    rectangle_width = max_radius / 10
-    sun_radius = rectangle_width
-
-    # Create sun
-    phi = np.linspace(0, 2*np.pi, 50)
-    theta = np.linspace(0, np.pi, 25)
-    phi, theta = np.meshgrid(phi, theta)
-
-    x_sun = sun_radius * np.sin(theta) * np.cos(phi)
-    y_sun = sun_radius * np.sin(theta) * np.sin(phi)
-    z_sun = sun_radius * np.cos(theta)
-
-    fig.add_trace(
-        go.Surface(
-            x=x_sun, y=y_sun, z=z_sun,
-            colorscale=[[0, '#ffff00'], [1, '#ffd700']],
-            showscale=False,
-            lighting=dict(ambient=0.8, diffuse=1, fresnel=2, specular=1, roughness=0.5),
-            name="Sun"
-        ),
-        row=1, col=2
-    )
-
-    # Add orbit circles
-    for i, orbit in enumerate(orbits):
-        circle_points = np.linspace(0, 2 * np.pi, 100)
-        x_orbit = orbit["radius"] * np.cos(circle_points)
-        y_orbit = orbit["radius"] * np.sin(circle_points)
-        z_orbit = np.zeros_like(circle_points)
-        
-        fig.add_trace(
-            go.Scatter3d(
-                x=x_orbit, y=y_orbit, z=z_orbit,
-                mode="lines", line=dict(color=orbit["color"], dash="dot", width=2),
-                name=f"Planet {i + 1} Orbit",
-                showlegend=False
-            ),
-            row=1, col=2
-        )
-
-    # Add observer rectangle
-    x_coords = [0, 0, observer_x, observer_x, 0]
-    y_coords = [-rectangle_width, rectangle_width, rectangle_width, -rectangle_width, -rectangle_width]
-    z_coords = [0, 0, 0, 0, 0]
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=x_coords, y=y_coords, z=z_coords,
-            mode="lines", line=dict(color="white", width=2),
-            name="Observer",
-        ),
-        row=1, col=2
-    )
-
-    def calculate_transit_depth(x, y, radius, transit_width, observer_x):
-        if x < 0 or x > observer_x:
-            return 0
-        scaled_y = y / rectangle_width
-        if abs(scaled_y) >= 1:
-            return 0
-        return (1.0 - scaled_y**2) * 0.3
-
-    # Calculate transit depths
-    all_transit_depths = np.zeros(len(time_steps))
-    for i, t in enumerate(time_steps):
-        total_depth = 0
-        for orbit in orbits:
-            angle = orbit["start_angle"] + t * orbit["speed_factor"]
-            x = orbit["radius"] * np.cos(angle)
-            y = orbit["radius"] * np.sin(angle)
-            transit_contribution = calculate_transit_depth(
-                x, y, orbit["radius"], orbit["transit_width"], observer_x
-            ) * orbit["mass"]
-            total_depth += transit_contribution
-        all_transit_depths[i] = -total_depth if total_depth > 0 else 0
-
-    # Create animation frames
-    frames = []
-    for i, t in enumerate(time_steps):
-        frame_data = []
-        
-        frame_data.append(
-            go.Scatter(
-                x=time_steps[:i+1],
-                y=all_transit_depths[:i+1],
-                mode='lines',
-                line=dict(color='rgb(147, 112, 219)', width=2),
-                name='Transit Detection'
-            )
-        )
-        
-        frame_data.append(
-            go.Surface(
-                x=x_sun, y=y_sun, z=z_sun,
-                colorscale=[[0, '#ffff00'], [1, '#ffd700']],
-                showscale=False,
-                lighting=dict(
-                    ambient=0.8, diffuse=1, fresnel=2, specular=1, roughness=0.5
-                ),
-                name="Sun"
-            )
-        )
-        
-        for j, orbit in enumerate(orbits):
-            angle = orbit["start_angle"] + t * orbit["speed_factor"]
-            x_planet = orbit["radius"] * np.cos(angle)
-            y_planet = orbit["radius"] * np.sin(angle)
-            z_planet = 0
+            let scene, camera, renderer, controls;
+            let planets = [];
+            let isPlaying = true;
+            let observerPlane;
+            let transitData = {{ x: [], y: [] }};
+            let currentTime = 0;
             
-            frame_data.append(
-                go.Scatter3d(
-                    x=[x_planet], y=[y_planet], z=[z_planet],
-                    mode="markers",
-                    marker=dict(
-                        size=orbit["planet_size"], 
-                        color=orbit["color"],
-                        symbol='circle',
-                        line=dict(color='white', width=1)
-                    ),
-                    name=f"Planet {j + 1}",
-                    showlegend=True
-                )
-            )
-        
-        frames.append(go.Frame(data=frame_data, name=str(i)))
+            const planetColors = [
+                0xff4500, 0x0080ff, 0x32cd32,
+                0x9370db, 0xff1493, 0xff8c00, 0x00ffff
+            ];
 
-    # Update layout
-    max_depth = abs(min(all_transit_depths))
-    fig.update_layout(
-        height=600,
-        title="Planet Transit Simulation",
-        xaxis_title="Time",
-        yaxis_title="Transit Detection (Combined Mass)",
-        yaxis=dict(
-            range=[-max_depth * 1.2, max_depth * 0.2],
-            zeroline=True,
-            zerolinecolor='gray',
-            gridcolor='lightgray'
-        ),
-        xaxis=dict(
-            range=[0, max(time_steps)],
-            zeroline=True,
-            zerolinecolor='gray',
-            gridcolor='lightgray'
-        ),
-        scene=dict(
-            xaxis=dict(range=[-1.2 * max_radius, 1.2 * max_radius],
-                      showticklabels=False, title='X'),
-            yaxis=dict(range=[-1.2 * max_radius, 1.2 * max_radius],
-                      showticklabels=False, title='Y'),
-            zaxis=dict(range=[-1.2 * max_radius, 1.2 * max_radius],
-                      showticklabels=False, title='Z'),
-            aspectmode='cube',
-            camera=dict(eye=dict(x=1.5, y=1.5, z=1.0))
-        ),
-        updatemenus=[{
-            "buttons": [
-                {
-                    "args": [None, {"frame": {"duration": 50, "redraw": True},
-                                  "fromcurrent": True}],
-                    "label": "Play",
-                    "method": "animate"
-                },
-                {
-                    "args": [[None], {"frame": {"duration": 0, "redraw": True},
-                                    "mode": "immediate",
-                                    "transition": {"duration": 0}}],
-                    "label": "Pause",
-                    "method": "animate"
-                }
-            ],
-            "direction": "left",
-            "pad": {"r": 10, "t": 87},
-            "showactive": False,
-            "type": "buttons",
-            "x": 0.1,
-            "xanchor": "right",
-            "y": 0,
-            "yanchor": "top"
-        }],
-        showlegend=True,
-        template="plotly_dark"
-    )
+            const koi_count = {koi_count};
+            const koi_prad = {koi_prad};
 
-    fig.frames = frames
-    return fig
+            function initScene() {{
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x000000);
+
+                const container = document.getElementById('threejs-container');
+                camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+                camera.position.set(20, 20, 20);
+
+                renderer = new THREE.WebGLRenderer({{ antialias: true }});
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                container.appendChild(renderer.domElement);
+
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                scene.add(ambientLight);
+                
+                const pointLight = new THREE.PointLight(0xffffff, 2);
+                scene.add(pointLight);
+
+                // Star
+                const starGeometry = new THREE.SphereGeometry(2, 32, 32);
+                const starMaterial = new THREE.MeshPhongMaterial({{
+                    emissive: 0xffff00,
+                    emissiveIntensity: 1
+                }});
+                const star = new THREE.Mesh(starGeometry, starMaterial);
+                scene.add(star);
+
+                // Observer line
+                const maxRadius = (koi_count + 1) * 4;
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, -maxRadius/2, 0),
+                    new THREE.Vector3(0, maxRadius/2, 0)
+                ]);
+                const lineMaterial = new THREE.LineBasicMaterial({{
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.5
+                }});
+                observerPlane = new THREE.Line(lineGeometry, lineMaterial);
+                observerPlane.position.x = maxRadius * 0.8;
+                scene.add(observerPlane);
+
+                // Create planets with tilted orbits
+                for (let i = 0; i < koi_count; i++) {{
+                    const radius = (i + 1) * 4;
+                    const planetSize = 0.5 + (koi_prad * 0.2);
+                    
+                    // Planet
+                    const planetGeometry = new THREE.SphereGeometry(planetSize, 32, 32);
+                    const planetMaterial = new THREE.MeshPhongMaterial({{
+                        color: planetColors[i % planetColors.length]
+                    }});
+                    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+                    
+                    // Create orbit points
+                    const orbitPoints = [];
+                    const segments = 64;
+                    for (let j = 0; j <= segments; j++) {{
+                        const theta = (j / segments) * Math.PI * 2;
+                        const x = radius * Math.cos(theta);
+                        const y = radius * Math.sin(theta);
+                        orbitPoints.push(new THREE.Vector3(x, y, 0));
+                    }}
+                    
+                    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+                    const orbitMaterial = new THREE.LineBasicMaterial({{
+                        color: 0x666666,
+                        opacity: 0.5,
+                        transparent: true
+                    }});
+                    const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+                    
+                    // Add random tilt to orbit
+                    const tiltAngle = (Math.random() - 0.5) * Math.PI / 6;
+                    orbit.rotation.x = tiltAngle;
+                    
+                    scene.add(orbit);
+                    scene.add(planet);
+                    
+                    planets.push({{
+                        mesh: planet,
+                        orbit: orbit,
+                        radius: radius,
+                        speed: 0.01 / Math.sqrt(radius),
+                        angle: Math.random() * Math.PI * 2,
+                        tilt: tiltAngle,
+                        size: planetSize
+                    }});
+                }}
+            }}
+
+            function initGraph() {{
+                const layout = {{
+                    title: {{
+                        text: 'Transit Light Curve',
+                        font: {{ color: '#fff' }}
+                    }},
+                    xaxis: {{ 
+                        title: 'Time',
+                        gridcolor: '#333',
+                        color: '#fff'
+                    }},
+                    yaxis: {{ 
+                        title: 'Relative Brightness',
+                        range: [0.95, 1.01],
+                        gridcolor: '#333',
+                        color: '#fff'
+                    }},
+                    plot_bgcolor: '#111',
+                    paper_bgcolor: '#111',
+                    font: {{ color: '#fff' }},
+                    showlegend: false,
+                    margin: {{ t: 50, r: 20, b: 50, l: 60 }}
+                }};
+
+                Plotly.newPlot('graph-container', [{{
+                    x: [],
+                    y: [],
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {{ color: '#9370db', width: 2 }}
+                }}], layout);
+            }}
+
+            function calculateTransitDepth() {{
+                let totalBrightness = 1.0;
+                const observerX = observerPlane.position.x;
+                
+                planets.forEach(planet => {{
+                    // Get planet position in world coordinates
+                    const worldPos = new THREE.Vector3();
+                    planet.mesh.getWorldPosition(worldPos);
+                    
+                    // Check if planet is near the observer line
+                    if (Math.abs(worldPos.x - observerX) < 0.5) {{
+                        // Calculate normalized position along observer line
+                        const normalizedY = worldPos.y / (observerPlane.geometry.attributes.position.array[4]);
+                        if (Math.abs(normalizedY) < 1) {{
+                            // Calculate transit depth based on planet size and position
+                            const transitDepth = (planet.size * planet.size * 0.02) * 
+                                               (1 - Math.pow(normalizedY, 2));
+                            totalBrightness -= transitDepth;
+                        }}
+                    }}
+                }});
+                
+                return Math.max(totalBrightness, 0.95);
+            }}
+
+            function updateGraph() {{
+                const brightness = calculateTransitDepth();
+                transitData.x.push(currentTime);
+                transitData.y.push(brightness);
+
+                if (transitData.x.length > 500) {{
+                    transitData.x.shift();
+                    transitData.y.shift();
+                }}
+
+                Plotly.update('graph-container', {{
+                    x: [transitData.x],
+                    y: [transitData.y]
+                }});
+            }}
+
+            function animate() {{
+                requestAnimationFrame(animate);
+                
+                if (isPlaying) {{
+                    currentTime += 0.1;
+                    
+                    planets.forEach(planet => {{
+                        planet.angle += planet.speed;
+                        
+                        // Calculate position considering orbit tilt
+                        const x = planet.radius * Math.cos(planet.angle);
+                        const y = planet.radius * Math.sin(planet.angle);
+                        
+                        // Apply orbit tilt transformation
+                        planet.mesh.position.set(
+                            x,
+                            y * Math.cos(planet.tilt),
+                            y * Math.sin(planet.tilt)
+                        );
+                    }});
+                    
+                    updateGraph();
+                }}
+                
+                controls.update();
+                renderer.render(scene, camera);
+            }}
+
+            function onWindowResize() {{
+                const container = document.getElementById('threejs-container');
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }}
+
+            function init() {{
+                initScene();
+                initGraph();
+                
+                window.addEventListener('resize', onWindowResize, false);
+                document.getElementById('playPause').addEventListener('click', () => {{
+                    isPlaying = !isPlaying;
+                    document.getElementById('playPause').textContent = isPlaying ? 'Pause' : 'Play';
+                }});
+                
+                animate();
+            }}
+
+            init();
+        </script>
+    </head>
+    <body>
+        <div id="simulation-container">
+            <div id="threejs-container"></div>
+            <div id="graph-container"></div>
+            <div id="controls">
+                <button id="playPause">Pause</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    components.html(html_content, height=800)
