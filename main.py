@@ -15,3 +15,4 @@ user_input = create_sidebar()
 # Show predictions when button is clicked
 if st.session_state.get('predict_clicked', False):
     show_prediction_results(model, scaler, user_input, data)
+    
